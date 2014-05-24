@@ -92,6 +92,7 @@ class Session(tornado.websocket.WebSocketHandler):
         self.control = self.zmq_connect(self.context, zmq.DEALER, self.control)
         self.control = zmq.eventloop.zmqstream.ZMQStream(self.control,
                                                          self.stream.io_loop)
+        self.control.on_recv(self.on_reply)
         print 'Connecting SUB socket to %r.' % self.updates
         self.updates = self.zmq_connect(self.context, zmq.SUB, self.updates)
         self.updates.setsockopt(zmq.SUBSCRIBE, '')
@@ -114,6 +115,11 @@ class Session(tornado.websocket.WebSocketHandler):
         if isinstance(message, unicode):
             message = message.encode('utf-8')
         self.control.send_multipart(['', message])
+
+    def on_reply(self, message):
+        """Forward outoing reply to the client (from ZMQ `DEALER` socket)."""
+        for part in message[1:]:
+            self.write_message(part)
 
     def on_update(self, message):
         """Forward outgoing update to the client (from ZMQ `SUB` socket)."""
@@ -147,6 +153,6 @@ def main(arguments):  # pylint: disable=unused-argument
     agent.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: nocover
     import sys
     main(sys.argv[:])

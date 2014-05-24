@@ -47,11 +47,22 @@ class TestHybridSetup(AsyncTestCase):
                           io_loop=self.io_loop,
                           callback=self.stop)
         session = self.wait().result()
-        # Send message and wait for reply.
+        # Send message and wait for reply to control command.
+        #
+        # NOTE: message order is flaky!
         session.write_message('Hello, world!')
         session.read_message(self.stop)
         message = self.wait().result()
-        self.assertEqual(message, 'Hello, world!')
+        if message == 'OK':
+            session.read_message(self.stop)
+            message = self.wait().result()
+            self.assertEqual(message, 'Hello, world!')
+        elif message == 'Hello, world!':
+            session.read_message(self.stop)
+            message = self.wait().result()
+            self.assertEqual(message, 'OK')
+        else:
+            self.fail('Expecting "OK" or "Hello, world!", not %r.', message)
         # Close connection and wait for confirmation.
         #
         # NOTE: without this, the session's `on_close()` handler will not be
